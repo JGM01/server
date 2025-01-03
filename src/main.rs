@@ -9,6 +9,8 @@ use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
 pub mod db;
+pub mod handlers;
+pub mod models;
 
 #[tokio::main]
 async fn main() {
