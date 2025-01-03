@@ -4,12 +4,11 @@ use dotenv::dotenv;
 use sqlx::SqlitePool;
 
 pub struct Database {
-    pub pool: SqlitePool
+    pub pool: SqlitePool,
 }
 
 impl Database {
-    pub async fn new() -> Result<Self, sqlx::Error>{
-
+    pub async fn new() -> Result<Self, sqlx::Error> {
         // Load the databse url environment variable (in .env)
         dotenv().ok();
         let db_url = env::var("DATABASE_URL").expect("Database URL must be set!");
@@ -20,7 +19,7 @@ impl Database {
         // Run migration :D
         sqlx::migrate!("./migrations").run(&pool).await?;
 
-        Ok(Self {pool})
+        Ok(Self { pool })
     }
 }
 
@@ -33,7 +32,9 @@ mod tests {
     async fn setup_test_db() -> Database {
         // Use an in-memory database for testing to ensure isolation
         std::env::set_var("DATABASE_URL", "sqlite::memory:");
-        Database::new().await.expect("Failed to create test database")
+        Database::new()
+            .await
+            .expect("Failed to create test database")
     }
 
     #[sqlx::test]
@@ -43,12 +44,9 @@ mod tests {
         let tag_name = "rust";
 
         // Act
-        let result = sqlx::query!(
-            "INSERT INTO tags (name) VALUES (?)",
-            tag_name
-        )
-        .execute(&db.pool)
-        .await?;
+        let result = sqlx::query!("INSERT INTO tags (name) VALUES (?)", tag_name)
+            .execute(&db.pool)
+            .await?;
 
         // Assert
         assert_eq!(result.rows_affected(), 1);
@@ -60,7 +58,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let tag_name = "rust";
-        
+
         // First insertion succeeds
         sqlx::query!("INSERT INTO tags (name) VALUES (?)", tag_name)
             .execute(&db.pool)
@@ -173,7 +171,7 @@ mod tests {
     async fn test_post_tag_relationship() -> sqlx::Result<()> {
         // Arrange
         let db = setup_test_db().await;
-        
+
         // Create a post
         sqlx::query!(
             r#"
@@ -218,7 +216,7 @@ mod tests {
     async fn test_cascade_delete_post_removes_tags_relationship() -> sqlx::Result<()> {
         // Arrange
         let db = setup_test_db().await;
-        
+
         // Create post and tag, then link them
         sqlx::query!(
             r#"
@@ -258,11 +256,9 @@ mod tests {
             .await?;
 
         // Assert - Check that post_tags entry was cascaded
-        let remaining_relationships = sqlx::query!(
-            "SELECT COUNT(*) as count FROM post_tags"
-        )
-        .fetch_one(&db.pool)
-        .await?;
+        let remaining_relationships = sqlx::query!("SELECT COUNT(*) as count FROM post_tags")
+            .fetch_one(&db.pool)
+            .await?;
 
         assert_eq!(remaining_relationships.count, 0);
         Ok(())

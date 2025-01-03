@@ -1,4 +1,8 @@
-use axum::{http::{header::CONTENT_TYPE, HeaderValue, Method}, routing::get, Json, Router};
+use axum::{
+    http::{header::CONTENT_TYPE, HeaderValue, Method},
+    routing::get,
+    Json, Router,
+};
 use db::Database;
 use serde::Serialize;
 use tokio::net::TcpListener;
@@ -9,8 +13,10 @@ pub mod db;
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt().init();
-    
-    let db = Database::new().await.expect("Failed to initialize database.");
+
+    let db = Database::new()
+        .await
+        .expect("Failed to initialize database.");
 
     let cors = CorsLayer::new()
         .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap())
