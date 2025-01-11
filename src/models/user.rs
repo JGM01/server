@@ -9,6 +9,4 @@ pub enum UserRole {
     User,
 }
 
-impl User {
-
-}
+impl User {}
