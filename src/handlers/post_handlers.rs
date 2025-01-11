@@ -35,7 +35,7 @@ fn default_limit() -> i64 {
 pub enum ApiError {
     #[error("Database error: {0}")]
     Database(#[from] DatabaseError),
-    
+
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
@@ -48,7 +48,10 @@ impl axum::response::IntoResponse for ApiError {
             ApiError::Database(DatabaseError::DuplicateEntry(msg)) => (StatusCode::CONFLICT, msg),
             ApiError::Database(DatabaseError::Validation(msg)) => (StatusCode::BAD_REQUEST, msg),
             ApiError::InvalidInput(msg) => (StatusCode::BAD_REQUEST, msg),
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
         };
 
         let body = Json(ErrorResponse { message });
@@ -63,7 +66,7 @@ struct ErrorResponse {
 }
 
 /// Create a new post
-/// 
+///
 /// This handler validates the input and creates a new post in the database.
 /// Returns the created post with its ID and timestamps on success.
 pub async fn create_post(
@@ -93,11 +96,11 @@ pub async fn get_post_by_slug(
 }
 
 /// List posts with optional filtering and pagination
-/// 
+///
 /// Supports filtering by:
 /// - Category (blog, art, reading)
 /// - Publication status (draft/published)
-/// 
+///
 /// And pagination using:
 /// - limit (max number of posts to return)
 /// - offset (number of posts to skip)
@@ -106,25 +109,22 @@ pub async fn list_posts(
     Query(query): Query<ListPostsQuery>,
 ) -> Result<Json<Vec<Post>>, ApiError> {
     let category = match query.category {
-        Some(cat_str) => Some(PostCategory::from_str(&cat_str)
-            .map_err(|e| ApiError::InvalidInput(format!("Invalid category: {}", e)))?),
+        Some(cat_str) => Some(
+            PostCategory::from_str(&cat_str)
+                .map_err(|e| ApiError::InvalidInput(format!("Invalid category: {}", e)))?,
+        ),
         None => None,
     };
 
     let posts = db
         .posts()
-        .list(
-            category,
-            query.published_only,
-            query.limit,
-            query.offset,
-        )
+        .list(category, query.published_only, query.limit, query.offset)
         .await?;
     Ok(Json(posts))
 }
 
 /// Update all fields of an existing post
-/// 
+///
 /// This is a full update that requires all fields to be provided.
 /// For partial updates, use the patch_post handler instead.
 pub async fn update_post(
@@ -136,7 +136,7 @@ pub async fn update_post(
 }
 
 /// Partially update a post
-/// 
+///
 /// Allows updating only specific fields of a post while leaving others unchanged.
 /// This is useful for small updates like toggling publication status or updating
 /// the title without having to provide all other fields.
@@ -149,7 +149,7 @@ pub async fn patch_post(
 }
 
 /// Delete a post by its ID
-/// 
+///
 /// If the post has any tags, the associations will be automatically removed
 /// thanks to the ON DELETE CASCADE constraint in our database schema.
 pub async fn delete_post(
@@ -159,4 +159,3 @@ pub async fn delete_post(
     db.posts().delete(id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
-

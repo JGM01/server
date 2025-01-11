@@ -1,6 +1,6 @@
-use std::env;
 use dotenv::dotenv;
 use sqlx::SqlitePool;
+use std::env;
 
 use super::{error::DatabaseResult, DatabaseError, PostRepository, TagRepository};
 
@@ -88,39 +88,44 @@ mod tests {
         assert!(db.is_ok(), "Should successfully create database connection");
     }
 
-
     #[tokio::test]
     async fn test_repository_access() {
         setup_test_env();
         let db = Database::new().await.unwrap();
-        
+
         // Test posts repository access
         let posts_repo = db.posts();
-        assert!(!std::ptr::eq(posts_repo, &PostRepository::new(db.pool().clone())),
-                "Should return reference to existing repository");
+        assert!(
+            !std::ptr::eq(posts_repo, &PostRepository::new(db.pool().clone())),
+            "Should return reference to existing repository"
+        );
 
         // Test tags repository access
         let tags_repo = db.tags();
-        assert!(!std::ptr::eq(tags_repo, &TagRepository::new(db.pool().clone())),
-                "Should return reference to existing repository");
+        assert!(
+            !std::ptr::eq(tags_repo, &TagRepository::new(db.pool().clone())),
+            "Should return reference to existing repository"
+        );
     }
 
     #[tokio::test]
     async fn test_transaction_creation() {
         setup_test_env();
         let db = Database::new().await.unwrap();
-        
+
         let transaction = db.transaction().await;
-        assert!(transaction.is_ok(), "Should successfully create transaction");
+        assert!(
+            transaction.is_ok(),
+            "Should successfully create transaction"
+        );
     }
 
     #[tokio::test]
     async fn test_pool_access() {
         setup_test_env();
         let db = Database::new().await.unwrap();
-        
+
         let pool = db.pool();
         assert!(pool.acquire().await.is_ok(), "Pool should be functional");
     }
-
 }

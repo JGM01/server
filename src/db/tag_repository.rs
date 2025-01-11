@@ -1,5 +1,5 @@
-use sqlx::SqlitePool;
 use crate::models::tag::{Tag, TagWithPostCount};
+use sqlx::SqlitePool;
 
 use super::{error::DatabaseResult, DatabaseError};
 
@@ -71,9 +71,9 @@ impl TagRepository {
 
     /// Retrieves a tag by its name
     pub async fn find_by_name(&self, name: &str) -> DatabaseResult<Tag> {
-    sqlx::query_as!(
-        Tag,
-        r#"
+        sqlx::query_as!(
+            Tag,
+            r#"
         SELECT 
             id as "id!",
             name as "name!",
@@ -81,13 +81,13 @@ impl TagRepository {
         FROM tags
         WHERE name = ?
         "#,
-        name
-    )
-    .fetch_optional(&self.pool)
-    .await
-    .map_err(DatabaseError::Sqlx)?
-    .ok_or_else(|| DatabaseError::not_found("Tag", name))
-}
+            name
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(DatabaseError::Sqlx)?
+        .ok_or_else(|| DatabaseError::not_found("Tag", name))
+    }
 
     /// Lists all tags, optionally including the count of posts for each tag
     pub async fn list(&self, include_post_count: bool) -> DatabaseResult<Vec<TagWithPostCount>> {
@@ -225,7 +225,7 @@ impl TagRepository {
         if result.rows_affected() == 0 {
             return Err(DatabaseError::not_found(
                 "Tag association",
-                &format!("{post_id}, {tag_id}")
+                &format!("{post_id}, {tag_id}"),
             ));
         }
 
@@ -235,9 +235,9 @@ impl TagRepository {
 
     /// Lists all tags for a specific post
     pub async fn list_tags_for_post(&self, post_id: i64) -> DatabaseResult<Vec<Tag>> {
-    sqlx::query_as!(
-        Tag,
-        r#"
+        sqlx::query_as!(
+            Tag,
+            r#"
         SELECT 
             t.id as "id!",
             t.name as "name!",
@@ -247,18 +247,21 @@ impl TagRepository {
         WHERE pt.post_id = ?
         ORDER BY t.name
         "#,
-        post_id
-    )
-    .fetch_all(&self.pool)
-    .await
-    .map_err(DatabaseError::Sqlx)
-}
+            post_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(DatabaseError::Sqlx)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ db::{test_utils::create_test_db, Database}, models::post::{CreatePost, PostCategory}};
+    use crate::{
+        db::{test_utils::create_test_db, Database},
+        models::post::{CreatePost, PostCategory},
+    };
 
     async fn setup() -> (Database, TagRepository) {
         let db = create_test_db().await.unwrap();
@@ -269,7 +272,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_tag() {
         let (_, repo) = setup().await;
-        
+
         // Test successful creation
         let tag = repo.create("rust").await;
         assert!(tag.is_ok());
@@ -278,7 +281,10 @@ mod tests {
 
         // Test duplicate tag
         let duplicate = repo.create("rust").await;
-        assert!(matches!(duplicate.unwrap_err(), DatabaseError::DuplicateEntry(_)));
+        assert!(matches!(
+            duplicate.unwrap_err(),
+            DatabaseError::DuplicateEntry(_)
+        ));
 
         // Test empty tag name
         let empty = repo.create("").await;
@@ -292,10 +298,10 @@ mod tests {
     #[tokio::test]
     async fn test_find_by_id() {
         let (_, repo) = setup().await;
-        
+
         // Create a test tag
         let created = repo.create("test-tag").await.unwrap();
-        
+
         // Test successful retrieval
         let found = repo.find_by_id(created.id).await;
         assert!(found.is_ok());
@@ -309,14 +315,14 @@ mod tests {
     #[tokio::test]
     async fn test_find_by_name() {
         let (_, repo) = setup().await;
-        
+
         // Create a test tag
         repo.create("findme").await.unwrap();
-        
+
         // Test successful retrieval
         let found = repo.find_by_name("findme").await;
         assert!(found.is_ok());
-        
+
         // Test non-existent name
         let not_found = repo.find_by_name("nonexistent").await;
         assert!(matches!(not_found.unwrap_err(), DatabaseError::NotFound(_)));
@@ -325,11 +331,11 @@ mod tests {
     #[tokio::test]
     async fn test_list_tags() {
         let (_, repo) = setup().await;
-        
+
         // Create some test tags
         repo.create("tag1").await.unwrap();
         repo.create("tag2").await.unwrap();
-        
+
         // Test listing without post count
         let tags = repo.list(false).await.unwrap();
         assert_eq!(tags.len(), 2);
@@ -343,10 +349,10 @@ mod tests {
     #[tokio::test]
     async fn test_update_tag() {
         let (_, repo) = setup().await;
-        
+
         // Create initial tag
         let tag = repo.create("initial").await.unwrap();
-        
+
         // Test successful update
         let updated = repo.update(tag.id, "updated").await;
         assert!(updated.is_ok());
@@ -359,19 +365,22 @@ mod tests {
         // Test duplicate name
         repo.create("existing").await.unwrap();
         let duplicate = repo.update(tag.id, "existing").await;
-        assert!(matches!(duplicate.unwrap_err(), DatabaseError::DuplicateEntry(_)));
+        assert!(matches!(
+            duplicate.unwrap_err(),
+            DatabaseError::DuplicateEntry(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_delete_tag() {
         let (_, repo) = setup().await;
-        
+
         // Create a tag to delete
         let tag = repo.create("delete-me").await.unwrap();
-        
+
         // Test successful deletion
         assert!(repo.delete(tag.id).await.is_ok());
-        
+
         // Verify tag is gone
         assert!(matches!(
             repo.find_by_id(tag.id).await.unwrap_err(),
@@ -388,19 +397,23 @@ mod tests {
     #[tokio::test]
     async fn test_tag_post_associations() {
         let (db, repo) = setup().await;
-        
+
         // Create test data
         let tag = repo.create("test-tag").await.unwrap();
-        let post = db.posts().create(CreatePost{
-            category: PostCategory::Blog,
-            title: "Test Post".to_string(),
-            slug: "test-post".to_string(),
-            content: "Test content".to_string(),
-            description: "Test description".to_string(),
-            image_url: None,
-            external_url: None,
-            published: true,
-        }).await.unwrap();
+        let post = db
+            .posts()
+            .create(CreatePost {
+                category: PostCategory::Blog,
+                title: "Test Post".to_string(),
+                slug: "test-post".to_string(),
+                content: "Test content".to_string(),
+                description: "Test description".to_string(),
+                image_url: None,
+                external_url: None,
+                published: true,
+            })
+            .await
+            .unwrap();
 
         // Test adding tag to post
         assert!(repo.add_tag_to_post(post.id, tag.id).await.is_ok());

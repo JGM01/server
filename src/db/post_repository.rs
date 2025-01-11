@@ -19,7 +19,8 @@ impl PostRepository {
     /// post record with generated fields like ID and timestamps.
     pub async fn create(&self, post: CreatePost) -> DatabaseResult<Post> {
         // Validate all fields before attempting database operation
-        post.validate().map_err(|e| DatabaseError::Validation(e.to_string()))?;
+        post.validate()
+            .map_err(|e| DatabaseError::Validation(e.to_string()))?;
 
         // Start a transaction to ensure data consistency
         let mut tx = self.pool.begin().await.map_err(DatabaseError::Sqlx)?;
@@ -93,9 +94,9 @@ impl PostRepository {
     /// Retrieves a post by its URL-friendly slug.
     /// Returns a NotFound error if the post doesn't exist.
     pub async fn find_by_slug(&self, slug: &str) -> DatabaseResult<Post> {
-    sqlx::query_as!(
-        Post,
-        r#"
+        sqlx::query_as!(
+            Post,
+            r#"
         SELECT 
             id as "id!", 
             category as "category!: PostCategory", 
@@ -111,17 +112,16 @@ impl PostRepository {
         FROM posts
         WHERE slug = ?
         "#,
-        slug
-    )
-    .fetch_optional(&self.pool)
-    .await
-    .map_err(DatabaseError::Sqlx)?
-    .ok_or_else(|| DatabaseError::not_found("Post", slug))
-}
-
+            slug
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(DatabaseError::Sqlx)?
+        .ok_or_else(|| DatabaseError::not_found("Post", slug))
+    }
 
     /// Lists posts with optional filtering and pagination.
-    /// 
+    ///
     /// Parameters:
     /// - category: Optional filter for post category
     /// - published_only: When true, returns only published posts
@@ -175,7 +175,8 @@ impl PostRepository {
     /// Returns a NotFound error if the post doesn't exist.
     pub async fn update(&self, post: UpdatePost) -> DatabaseResult<Post> {
         // Validate all fields before attempting database operation
-        post.validate().map_err(|e| DatabaseError::Validation(e.to_string()))?;
+        post.validate()
+            .map_err(|e| DatabaseError::Validation(e.to_string()))?;
 
         let mut tx = self.pool.begin().await.map_err(DatabaseError::Sqlx)?;
 
@@ -230,14 +231,12 @@ impl PostRepository {
     /// This is useful for making small changes without needing to send the entire post.
     pub async fn patch(&self, patch: PatchPost) -> DatabaseResult<Post> {
         let mut tx = self.pool.begin().await.map_err(DatabaseError::Sqlx)?;
-        
+
         // First fetch the existing post to merge with patch data
         let current = self.find_by_id(patch.id).await?;
-        
+
         // Convert category to string if it's being updated
-        let category_str = patch.category
-            .unwrap_or(current.category)
-            .to_string();
+        let category_str = patch.category.unwrap_or(current.category).to_string();
 
         let title = patch.title.clone().unwrap_or(current.title);
         let slug = patch.slug.clone().unwrap_or(current.slug);
@@ -348,7 +347,7 @@ mod tests {
     async fn test_create_post() {
         let (_, repo) = setup().await;
         let post_data = create_test_post();
-        
+
         // Test successful creation
         let post = repo.create(post_data.clone()).await;
         assert!(post.is_ok());
@@ -358,21 +357,27 @@ mod tests {
 
         // Test duplicate slug
         let duplicate = repo.create(post_data).await;
-        assert!(matches!(duplicate.unwrap_err(), DatabaseError::DuplicateEntry(_)));
+        assert!(matches!(
+            duplicate.unwrap_err(),
+            DatabaseError::DuplicateEntry(_)
+        ));
 
         // Test empty title
         let mut invalid = create_test_post();
         invalid.title = "".to_string();
-        assert!(matches!(repo.create(invalid).await.unwrap_err(), DatabaseError::Validation(_)));
+        assert!(matches!(
+            repo.create(invalid).await.unwrap_err(),
+            DatabaseError::Validation(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_find_by_id() {
         let (_, repo) = setup().await;
-        
+
         // Create test post
         let created = repo.create(create_test_post()).await.unwrap();
-        
+
         // Test successful retrieval
         let found = repo.find_by_id(created.id).await;
         assert!(found.is_ok());
@@ -386,14 +391,14 @@ mod tests {
     #[tokio::test]
     async fn test_find_by_slug() {
         let (_, repo) = setup().await;
-        
+
         // Create test post
         repo.create(create_test_post()).await.unwrap();
-        
+
         // Test successful retrieval
         let found = repo.find_by_slug("test-post").await;
         assert!(found.is_ok());
-        
+
         // Test non-existent slug
         let not_found = repo.find_by_slug("nonexistent").await;
         assert!(matches!(not_found.unwrap_err(), DatabaseError::NotFound(_)));
@@ -402,7 +407,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_posts() {
         let (_, repo) = setup().await;
-        
+
         // Create some test posts
         let mut post1 = create_test_post();
         post1.slug = "post-1".to_string();
@@ -410,16 +415,19 @@ mod tests {
         post2.slug = "post-2".to_string();
         post2.category = PostCategory::Art;
         post2.published = false;
-        
+
         repo.create(post1).await.unwrap();
         repo.create(post2).await.unwrap();
-        
+
         // Test listing all posts
         let all_posts = repo.list(None, false, 10, 0).await.unwrap();
         assert_eq!(all_posts.len(), 2);
 
         // Test category filter
-        let blog_posts = repo.list(Some(PostCategory::Blog), false, 10, 0).await.unwrap();
+        let blog_posts = repo
+            .list(Some(PostCategory::Blog), false, 10, 0)
+            .await
+            .unwrap();
         assert_eq!(blog_posts.len(), 1);
 
         // Test published filter
@@ -438,10 +446,10 @@ mod tests {
     #[tokio::test]
     async fn test_update_post() {
         let (_, repo) = setup().await;
-        
+
         // Create initial post
         let created = repo.create(create_test_post()).await.unwrap();
-        
+
         // Test successful update
         let update = UpdatePost {
             id: created.id,
@@ -454,7 +462,7 @@ mod tests {
             external_url: Some("https://example.com".to_string()),
             published: false,
         };
-        
+
         let updated = repo.update(update.clone()).await.unwrap();
         assert_eq!(updated.title, "Updated Title");
         assert_eq!(updated.slug, "updated-slug");
@@ -464,16 +472,19 @@ mod tests {
         // Test non-existent ID
         let mut invalid = update;
         invalid.id = 999;
-        assert!(matches!(repo.update(invalid).await.unwrap_err(), DatabaseError::NotFound(_)));
+        assert!(matches!(
+            repo.update(invalid).await.unwrap_err(),
+            DatabaseError::NotFound(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_patch_post() {
         let (_, repo) = setup().await;
-        
+
         // Create initial post
         let created = repo.create(create_test_post()).await.unwrap();
-        
+
         // Test partial update with only title
         let patch = PatchPost {
             id: created.id,
@@ -486,7 +497,7 @@ mod tests {
             external_url: None,
             published: None,
         };
-        
+
         let patched = repo.patch(patch).await.unwrap();
         assert_eq!(patched.title, "Patched Title");
         // Other fields should remain unchanged
@@ -501,7 +512,7 @@ mod tests {
             published: Some(false),
             ..Default::default()
         };
-        
+
         let multi_patched = repo.patch(multi_patch).await.unwrap();
         assert_eq!(multi_patched.category, PostCategory::Art);
         assert!(!multi_patched.published);
@@ -514,19 +525,22 @@ mod tests {
             title: Some("Invalid".to_string()),
             ..Default::default()
         };
-        assert!(matches!(repo.patch(invalid_patch).await.unwrap_err(), DatabaseError::NotFound(_)));
+        assert!(matches!(
+            repo.patch(invalid_patch).await.unwrap_err(),
+            DatabaseError::NotFound(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_delete_post() {
         let (_, repo) = setup().await;
-        
+
         // Create a post to delete
         let post = repo.create(create_test_post()).await.unwrap();
-        
+
         // Test successful deletion
         assert!(repo.delete(post.id).await.is_ok());
-        
+
         // Verify post is gone
         assert!(matches!(
             repo.find_by_id(post.id).await.unwrap_err(),

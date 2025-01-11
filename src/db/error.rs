@@ -29,13 +29,19 @@ pub type DatabaseResult<T> = Result<T, DatabaseError>;
 // Helper functions remain the same
 impl DatabaseError {
     pub fn not_found(resource: &str, identifier: &str) -> Self {
-        Self::NotFound(format!("{} with identifier '{}' not found", resource, identifier))
+        Self::NotFound(format!(
+            "{} with identifier '{}' not found",
+            resource, identifier
+        ))
     }
 
     pub fn duplicate(resource: &str, identifier: &str) -> Self {
-        Self::DuplicateEntry(format!("{} with identifier '{}' already exists", resource, identifier))
+        Self::DuplicateEntry(format!(
+            "{} with identifier '{}' already exists",
+            resource, identifier
+        ))
     }
-    
+
     pub fn validation(message: &str) -> Self {
         Self::Validation(message.to_string())
     }

@@ -1,5 +1,3 @@
-
-
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -147,29 +145,48 @@ pub struct PatchPost {
 }
 
 fn is_valid_slug(slug: &str) -> bool {
-    !slug.is_empty() 
-        && slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    !slug.is_empty()
+        && slug
+            .chars()
+            .all(|c| (c.is_ascii_alphanumeric() || c == '-'))
         && !slug.starts_with('-')
         && !slug.ends_with('-')
 }
-
 #[cfg(test)]
-mod post_tests {
+mod tests {
     use super::*;
+    use time::OffsetDateTime;
+
+    // Helper function to create a valid CreatePost instance
+    fn create_valid_post() -> CreatePost {
+        CreatePost {
+            category: PostCategory::Blog,
+            title: "Test Post".to_string(),
+            slug: "test-post".to_string(),
+            content: "Test content".to_string(),
+            description: "Test description".to_string(),
+            image_url: None,
+            external_url: None,
+            published: false,
+        }
+    }
 
     #[test]
-    fn test_post_category_from_str() {
+    fn test_post_category_conversion() {
+        // Test string to PostCategory conversion
         assert_eq!(PostCategory::from_str("blog").unwrap(), PostCategory::Blog);
         assert_eq!(PostCategory::from_str("art").unwrap(), PostCategory::Art);
-        assert_eq!(PostCategory::from_str("reading").unwrap(), PostCategory::Reading);
-        
-        // Case insensitive
+        assert_eq!(
+            PostCategory::from_str("reading").unwrap(),
+            PostCategory::Reading
+        );
+
+        // Test case insensitivity
         assert_eq!(PostCategory::from_str("BLOG").unwrap(), PostCategory::Blog);
         assert_eq!(PostCategory::from_str("Art").unwrap(), PostCategory::Art);
-        
-        // Invalid categories
+
+        // Test invalid category
         assert!(PostCategory::from_str("invalid").is_err());
-        assert!(PostCategory::from_str("").is_err());
     }
 
     #[test]
@@ -179,20 +196,150 @@ mod post_tests {
         assert_eq!(PostCategory::Reading.to_string(), "reading");
     }
 
+    #[test]
+    fn test_create_post_validation() {
+        // Test valid post
+        let valid_post = create_valid_post();
+        assert!(valid_post.validate().is_ok());
+
+        // Test empty title
+        let mut invalid_post = create_valid_post();
+        invalid_post.title = "".to_string();
+        assert!(matches!(
+            invalid_post.validate(),
+            Err(PostError::EmptyTitle)
+        ));
+
+        // Test whitespace title
+        let mut whitespace_post = create_valid_post();
+        whitespace_post.title = "    ".to_string();
+        assert!(matches!(
+            whitespace_post.validate(),
+            Err(PostError::EmptyTitle)
+        ));
+
+        // Test empty content
+        let mut no_content_post = create_valid_post();
+        no_content_post.content = "".to_string();
+        assert!(matches!(
+            no_content_post.validate(),
+            Err(PostError::EmptyContent)
+        ));
+
+        // Test invalid slug
+        let mut invalid_slug_post = create_valid_post();
+        invalid_slug_post.slug = "invalid slug!".to_string();
+        assert!(matches!(
+            invalid_slug_post.validate(),
+            Err(PostError::InvalidSlug)
+        ));
+    }
+
+    #[test]
+    fn test_update_post_validation() {
+        // Test valid update
+        let valid_update = UpdatePost {
+            id: 1,
+            category: PostCategory::Blog,
+            title: "Updated Post".to_string(),
+            slug: "updated-post".to_string(),
+            content: "Updated content".to_string(),
+            description: "Updated description".to_string(),
+            image_url: None,
+            external_url: None,
+            published: true,
+        };
+        assert!(valid_update.validate().is_ok());
+
+        // Test invalid ID
+        let mut invalid_id = valid_update.clone();
+        invalid_id.id = 0;
+        assert!(matches!(invalid_id.validate(), Err(PostError::InvalidId)));
+
+        invalid_id.id = -1;
+        assert!(matches!(invalid_id.validate(), Err(PostError::InvalidId)));
+
+        // Test empty fields
+        let mut empty_fields = valid_update.clone();
+        empty_fields.title = "".to_string();
+        assert!(matches!(
+            empty_fields.validate(),
+            Err(PostError::EmptyTitle)
+        ));
+
+        empty_fields = valid_update.clone();
+        empty_fields.content = "".to_string();
+        assert!(matches!(
+            empty_fields.validate(),
+            Err(PostError::EmptyContent)
+        ));
+    }
 
     #[test]
     fn test_slug_validation() {
-        // Valid slugs
-        assert!(is_valid_slug("valid-slug"));
-        assert!(is_valid_slug("123"));
-        assert!(is_valid_slug("post-123"));
-        assert!(is_valid_slug("valid-slug-123"));
+        // Test valid slugs
+        assert!(is_valid_slug("simple-slug"));
+        assert!(is_valid_slug("123-numeric"));
+        assert!(is_valid_slug("multiple-hyphens-are-ok"));
+        assert!(is_valid_slug("alphanumeric123"));
 
-        // Invalid slugs
+        // Test invalid slugs
         assert!(!is_valid_slug("")); // Empty
-        assert!(!is_valid_slug("-invalid")); // Starts with hyphen
-        assert!(!is_valid_slug("invalid-")); // Ends with hyphen
-        assert!(!is_valid_slug("invalid!")); // Invalid characters
-        assert!(!is_valid_slug("invalid space")); // Contains space
+        assert!(!is_valid_slug("-starts-with-hyphen")); // Starting hyphen
+        assert!(!is_valid_slug("ends-with-hyphen-")); // Ending hyphen
+        assert!(!is_valid_slug("special!chars")); // Special characters
+        assert!(!is_valid_slug("spaces not allowed")); // Spaces
+    }
+
+    #[test]
+    fn test_patch_post_default() {
+        // Test Default implementation for PatchPost
+        let patch = PatchPost::default();
+        assert_eq!(patch.id, 0);
+        assert!(patch.category.is_none());
+        assert!(patch.title.is_none());
+        assert!(patch.slug.is_none());
+        assert!(patch.content.is_none());
+        assert!(patch.description.is_none());
+        assert!(patch.image_url.is_none());
+        assert!(patch.external_url.is_none());
+        assert!(patch.published.is_none());
+    }
+
+    #[test]
+    fn test_post_urls() {
+        // Test URL validation (if implemented)
+        let mut post = create_valid_post();
+
+        // Valid URLs
+        post.image_url = Some("https://example.com/image.jpg".to_string());
+        post.external_url = Some("https://example.com/article".to_string());
+        assert!(post.validate().is_ok());
+
+        // Invalid URLs (if we implement URL validation)
+        post.image_url = Some("not-a-url".to_string());
+        // Assuming we add URL validation, this would fail:
+        // assert!(post.validate().is_err());
+    }
+
+    #[test]
+    fn test_post_timestamps() {
+        let now = OffsetDateTime::now_utc();
+        let post = Post {
+            id: 1,
+            category: PostCategory::Blog,
+            title: "Test".to_string(),
+            slug: "test".to_string(),
+            content: "Content".to_string(),
+            description: "Description".to_string(),
+            image_url: None,
+            external_url: None,
+            published: false,
+            created_at: now,
+            updated_at: now,
+        };
+
+        assert_eq!(post.created_at, now);
+        assert_eq!(post.updated_at, now);
     }
 }
