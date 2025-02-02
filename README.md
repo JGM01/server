@@ -1,4 +1,4 @@
-# Blog API Documentation
+# Blog API
 
 This document provides comprehensive documentation for the Blog API endpoints, including data types, request/response formats, and error handling.
 
